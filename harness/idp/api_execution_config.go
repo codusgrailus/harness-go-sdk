@@ -65,36 +65,35 @@ const (
 
 func (a *ExecutionConfigApiService) GetDefaultConfig(ctx context.Context,
 	infraType string) (ExecutionConfigResponse, error) {
-	return a.executeRequest(ctx, http.MethodGet,
+	return runIdpExecutionConfigRequest(a.client, ctx, http.MethodGet,
 		execCfgGetDefaultConfigUrl, execCfgQueryParams(infraType, nil), []string{}, nil)
 }
 
 func (a *ExecutionConfigApiService) GetCustomerConfig(ctx context.Context,
 	infraType string, overridesOnly bool) (ExecutionConfigResponse, error) {
-	return a.executeRequest(ctx, http.MethodGet,
+	return runIdpExecutionConfigRequest(a.client, ctx, http.MethodGet,
 		execCfgGetCustomerConfigUrl, execCfgQueryParams(infraType, &overridesOnly), []string{}, nil)
 }
 
 func (a *ExecutionConfigApiService) UpdateConfig(ctx context.Context,
 	infraType string, body []ExecutionConfigUpdate) (ExecutionConfigResponse, error) {
-	return a.executeRequest(ctx, http.MethodPost,
+	return runIdpExecutionConfigRequest(a.client, ctx, http.MethodPost,
 		execCfgUpdateConfigUrl, execCfgQueryParams(infraType, nil), []string{"application/json"}, &body)
 }
 
 func (a *ExecutionConfigApiService) ResetConfig(ctx context.Context,
 	infraType string, body []ExecutionConfigUpdate) (ExecutionConfigResponse, error) {
-	return a.executeRequest(ctx, http.MethodPost,
+	return runIdpExecutionConfigRequest(a.client, ctx, http.MethodPost,
 		execCfgResetConfigUrl, execCfgQueryParams(infraType, nil), []string{"application/json"}, &body)
 }
 
-// gatewayBase returns the gateway base URL without the /v1 suffix that the IDP
-// client appends by default. The execution-config endpoints live at /idp/...,
-// not under /v1.
-func (a *ExecutionConfigApiService) gatewayBase() string {
-	return strings.TrimSuffix(a.client.cfg.BasePath, "/v1")
+// idpGatewayBase strips the /v1 suffix from the IDP client BasePath so that
+// execution-config endpoints (at /idp/...) are addressed correctly.
+func idpGatewayBase(client *APIClient) string {
+	return strings.TrimSuffix(client.cfg.BasePath, "/v1")
 }
 
-func (a *ExecutionConfigApiService) executeRequest(ctx context.Context,
+func runIdpExecutionConfigRequest(client *APIClient, ctx context.Context,
 	httpMethod, path string, extraQueryParams url.Values,
 	contentTypes []string, body interface{}) (ExecutionConfigResponse, error) {
 
@@ -102,16 +101,16 @@ func (a *ExecutionConfigApiService) executeRequest(ctx context.Context,
 		localVarPostBody  interface{}
 		localVarFileName  string
 		localVarFileBytes []byte
-		localVarResult   ExecutionConfigResponse
+		localVarResult    ExecutionConfigResponse
 	)
 
-	localVarPath := a.gatewayBase() + path
+	localVarPath := idpGatewayBase(client) + path
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
 
-	localVarQueryParams.Add("accountIdentifier", parameterToString(a.client.AccountId, ""))
+	localVarQueryParams.Add("accountIdentifier", parameterToString(client.AccountId, ""))
 	for k, vs := range extraQueryParams {
 		for _, v := range vs {
 			localVarQueryParams.Add(k, v)
@@ -144,13 +143,13 @@ func (a *ExecutionConfigApiService) executeRequest(ctx context.Context,
 		localVarPostBody = body
 	}
 
-	r, err := a.client.prepareRequest(ctx, localVarPath, httpMethod, localVarPostBody, localVarHeaderParams,
+	r, err := client.prepareRequest(ctx, localVarPath, httpMethod, localVarPostBody, localVarHeaderParams,
 		localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {
 		return localVarResult, err
 	}
 
-	httpResp, err := a.client.callAPI(r)
+	httpResp, err := client.callAPI(r)
 	if err != nil {
 		return localVarResult, err
 	}
@@ -173,7 +172,7 @@ func (a *ExecutionConfigApiService) executeRequest(ctx context.Context,
 		}
 	}
 
-	err = a.client.decode(&localVarResult, respBody, httpResp.Header.Get("Content-Type"))
+	err = client.decode(&localVarResult, respBody, httpResp.Header.Get("Content-Type"))
 	return localVarResult, err
 }
 
