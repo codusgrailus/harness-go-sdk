@@ -1,3 +1,12 @@
+/*
+	go test \
+		-v \
+		-run TestCiExecutionConfig \
+		-account $HARNESS_ACCOUNT_ID \
+		-api-key $HARNESS_PLATFORM_API_KEY \
+		./harness/nextgen
+*/
+
 package nextgen
 
 import (
