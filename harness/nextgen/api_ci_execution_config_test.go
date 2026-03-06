@@ -37,46 +37,41 @@ func TestCiExecutionConfig(t *testing.T) {
 	testUpdateImageType := "liteEngineTag"
 	testUpdateImageTag := "harness/ci-lite-engine:updatedTmpNow"
 
-	// fetch the harness default images for the infra type
 	testCiGetDefaultConfig(tc)
-	// verify no customer overrides exist before making any changes
 	testCiGetCustomerConfigOverridesOnly(tc)
-	// override liteEngineTag with a custom image tag
+
 	testCiUpdateConfig(tc, testUpdateImageType, testUpdateImageTag)
-	// confirm the override appears when fetching overrides only
 	testCiGetCustomerConfigOverridesOnlyAfterUpdate(tc, testUpdateImageType, testUpdateImageTag)
-	// confirm the override appears in the full config
 	testCiGetCustomerConfigAllAfterUpdate(tc, testUpdateImageType, testUpdateImageTag)
-	// reset liteEngineTag back to the harness default
+
 	testCiResetConfig(tc, testUpdateImageType)
-	// confirm the override is gone after reset
 	testCiGetCustomerConfigOverridesOnlyAfterReset(tc, testUpdateImageType)
 }
 
+// pass: HTTP 200, status SUCCESS, data contains at least one image tag
+// fail: any HTTP error, or data is nil (no images returned)
 func testCiGetDefaultConfig(tc *ciTestContext) {
 	tc.t.Log("=== GetDefaultConfig ===")
-	// pass: HTTP 200, status SUCCESS, data contains at least one image tag
-	// fail: any HTTP error, or data is nil (no images returned)
 	resp, httpResp, err := tc.client.CiExecutionConfigApi.GetDefaultConfig(tc.ctx, tc.infraType)
 	printCiResult(tc.t, resp, httpResp.StatusCode, err)
 	require.NotNil(tc.t, resp.Data, "expected default config data, got nil")
 	require.NotEmpty(tc.t, resp.Data.LiteEngineTag, "expected liteEngineTag to be set in default config")
 }
 
+// pass: HTTP 200, status SUCCESS, data nil or liteEngineTag empty (no overrides set yet)
+// fail: HTTP error, or liteEngineTag already has an override (dirty state from a previous run)
 func testCiGetCustomerConfigOverridesOnly(tc *ciTestContext) {
 	tc.t.Log("=== GetCustomerConfig before update (overridesOnly=true, expect no overrides) ===")
-	// pass: HTTP 200, status SUCCESS, data nil or liteEngineTag empty (no overrides set yet)
-	// fail: HTTP error, or liteEngineTag already has an override (dirty state from a previous run)
 	resp, httpResp, err := tc.client.CiExecutionConfigApi.GetCustomerConfig(tc.ctx, tc.infraType, true)
 	printCiResult(tc.t, resp, httpResp.StatusCode, err)
 	require.True(tc.t, resp.Data == nil || resp.Data.LiteEngineTag == "",
 		"expected no liteEngineTag override before update, got %q", resp.Data.LiteEngineTag)
 }
 
+// pass: HTTP 200, status SUCCESS — the API accepted the override
+// fail: any HTTP error (e.g. 400 bad field name, 401 auth, 403 forbidden)
 func testCiUpdateConfig(tc *ciTestContext, imageField, imageTag string) {
 	tc.t.Logf("=== UpdateConfig (set %s = %s) ===", imageField, imageTag)
-	// pass: HTTP 200, status SUCCESS — the API accepted the override
-	// fail: any HTTP error (e.g. 400 bad field name, 401 auth, 403 forbidden)
 	body := []CiExecutionConfigUpdate{
 		{Field: imageField, Value: imageTag},
 	}
@@ -84,28 +79,28 @@ func testCiUpdateConfig(tc *ciTestContext, imageField, imageTag string) {
 	printCiResult(tc.t, resp, httpResp.StatusCode, err)
 }
 
+// pass: HTTP 200, data contains imageField set to imageTag (override is visible)
+// fail: HTTP error, data nil, or imageField value does not match imageTag
 func testCiGetCustomerConfigOverridesOnlyAfterUpdate(tc *ciTestContext, imageField, imageTag string) {
 	tc.t.Log("=== GetCustomerConfig after update (overridesOnly=true, expect override present) ===")
-	// pass: HTTP 200, data contains imageField set to imageTag (override is visible)
-	// fail: HTTP error, data nil, or imageField value does not match imageTag
 	resp, httpResp, err := tc.client.CiExecutionConfigApi.GetCustomerConfig(tc.ctx, tc.infraType, true)
 	printCiResult(tc.t, resp, httpResp.StatusCode, err)
 	checkCiField(tc.t, resp, imageField, imageTag)
 }
 
+// pass: HTTP 200, full config returned with imageField set to imageTag
+// fail: HTTP error, data nil, or imageField value does not match imageTag
 func testCiGetCustomerConfigAllAfterUpdate(tc *ciTestContext, imageField, imageTag string) {
 	tc.t.Log("=== GetCustomerConfig after update (overridesOnly=false, expect override present) ===")
-	// pass: HTTP 200, full config returned with imageField set to imageTag
-	// fail: HTTP error, data nil, or imageField value does not match imageTag
 	resp, httpResp, err := tc.client.CiExecutionConfigApi.GetCustomerConfig(tc.ctx, tc.infraType, false)
 	printCiResult(tc.t, resp, httpResp.StatusCode, err)
 	checkCiField(tc.t, resp, imageField, imageTag)
 }
 
+// pass: HTTP 200, status SUCCESS — the API accepted the reset
+// fail: any HTTP error
 func testCiResetConfig(tc *ciTestContext, imageField string) {
 	tc.t.Logf("=== ResetConfig (reset %s) ===", imageField)
-	// pass: HTTP 200, status SUCCESS — the API accepted the reset
-	// fail: any HTTP error
 	body := []CiExecutionConfigUpdate{
 		{Field: imageField},
 	}
@@ -113,10 +108,10 @@ func testCiResetConfig(tc *ciTestContext, imageField string) {
 	printCiResult(tc.t, resp, httpResp.StatusCode, err)
 }
 
+// pass: HTTP 200, data nil or imageField empty — override was removed by reset
+// fail: HTTP error, or imageField still holds the previously set override value
 func testCiGetCustomerConfigOverridesOnlyAfterReset(tc *ciTestContext, imageField string) {
 	tc.t.Log("=== GetCustomerConfig after reset (overridesOnly=true, expect no overrides) ===")
-	// pass: HTTP 200, data nil or imageField empty — override was removed by reset
-	// fail: HTTP error, or imageField still holds the previously set override value
 	resp, httpResp, err := tc.client.CiExecutionConfigApi.GetCustomerConfig(tc.ctx, tc.infraType, true)
 	printCiResult(tc.t, resp, httpResp.StatusCode, err)
 	require.True(tc.t, resp.Data == nil || resp.Data.LiteEngineTag == "",
