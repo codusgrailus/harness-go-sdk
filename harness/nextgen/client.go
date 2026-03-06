@@ -80,6 +80,8 @@ type APIClient struct {
 
 	CiExecutionConfigApi *CiExecutionConfigApiService // https://developer.harness.io/docs/continuous-integration/use-ci/set-up-build-infrastructure/harness-ci
 
+	IacmExecutionConfigApi *IacmExecutionConfigApiService // https://developer.harness.io/docs/infrastructure-as-code-management
+
 	ClustersApi *ClustersApiService
 
 	CloudCostAnomaliesApi *CloudCostAnomaliesApiService
@@ -386,6 +388,7 @@ func NewAPIClient(cfg *Configuration) *APIClient {
 	c.WebhookEventHandlerApi = (*WebhookEventHandlerApiService)(&c.common)
 	c.WebhookTriggersApi = (*WebhookTriggersApiService)(&c.common)
 	c.CiExecutionConfigApi = (*CiExecutionConfigApiService)(&c.common)
+	c.IacmExecutionConfigApi = (*IacmExecutionConfigApiService)(&c.common)
 	c.WorkspaceApi = (*WorkspacesApiService)(&c.common)
 	c.GitXWebhooksApiService = (*GitXWebhooksApiService)(&c.common)
 	c.ProjectGitxWebhooksApiService = (*ProjectGitxWebhooksApiService)(&c.common)
