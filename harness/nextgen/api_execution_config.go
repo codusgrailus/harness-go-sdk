@@ -1,21 +1,18 @@
-package idp
+package nextgen
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
-	"strings"
 )
 
-type ExecutionConfigApiService service
 
 // ExecutionConfigData is a map of image field names to string values. It uses a
-// custom JSON unmarshaler so that non-string API response values (e.g. booleans)
-// are silently coerced to their string representation rather than causing an
-// unmarshal error.
+// custom JSON unmarshaler so that non-string API response values (e.g. booleans
+// returned by IACM update-config) are silently coerced to their string
+// representation rather than causing an unmarshal error.
 type ExecutionConfigData map[string]string
 
 func (d *ExecutionConfigData) UnmarshalJSON(b []byte) error {
@@ -41,8 +38,9 @@ func (d *ExecutionConfigData) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// ExecutionConfigResponse is the API response wrapper for the IDP execution config endpoint.
-// Data is a dynamic map of image field names to image tags, e.g. {"registerCatalog": "harness/registercatalog:1.9.0"}.
+// ExecutionConfigResponse is the shared API response wrapper for execution config endpoints
+// (CI, IACM). Data is a dynamic map of image field names to image tags,
+// e.g. {"liteEngineTag": "harness/ci-lite-engine:1.0.0"}.
 type ExecutionConfigResponse struct {
 	Status        string              `json:"status,omitempty"`
 	Data          ExecutionConfigData `json:"data,omitempty"`
@@ -56,45 +54,10 @@ type ExecutionConfigUpdate struct {
 	Value string `json:"value,omitempty"`
 }
 
-const (
-	execCfgGetDefaultConfigUrl  = "/idp/execution-config/get-default-config"
-	execCfgGetCustomerConfigUrl = "/idp/execution-config/get-customer-config"
-	execCfgUpdateConfigUrl      = "/idp/execution-config/update-config"
-	execCfgResetConfigUrl       = "/idp/execution-config/reset-config"
-)
-
-func (a *ExecutionConfigApiService) GetDefaultConfig(ctx context.Context,
-	infraType string) (ExecutionConfigResponse, error) {
-	return a.executeRequest(ctx, http.MethodGet,
-		execCfgGetDefaultConfigUrl, execCfgQueryParams(infraType, nil), []string{}, nil)
-}
-
-func (a *ExecutionConfigApiService) GetCustomerConfig(ctx context.Context,
-	infraType string, overridesOnly bool) (ExecutionConfigResponse, error) {
-	return a.executeRequest(ctx, http.MethodGet,
-		execCfgGetCustomerConfigUrl, execCfgQueryParams(infraType, &overridesOnly), []string{}, nil)
-}
-
-func (a *ExecutionConfigApiService) UpdateConfig(ctx context.Context,
-	infraType string, body []ExecutionConfigUpdate) (ExecutionConfigResponse, error) {
-	return a.executeRequest(ctx, http.MethodPost,
-		execCfgUpdateConfigUrl, execCfgQueryParams(infraType, nil), []string{"application/json"}, &body)
-}
-
-func (a *ExecutionConfigApiService) ResetConfig(ctx context.Context,
-	infraType string, body []ExecutionConfigUpdate) (ExecutionConfigResponse, error) {
-	return a.executeRequest(ctx, http.MethodPost,
-		execCfgResetConfigUrl, execCfgQueryParams(infraType, nil), []string{"application/json"}, &body)
-}
-
-// gatewayBase returns the gateway base URL without the /v1 suffix that the IDP
-// client appends by default. The execution-config endpoints live at /idp/...,
-// not under /v1.
-func (a *ExecutionConfigApiService) gatewayBase() string {
-	return strings.TrimSuffix(a.client.cfg.BasePath, "/v1")
-}
-
-func (a *ExecutionConfigApiService) executeRequest(ctx context.Context,
+// runExecutionConfigRequest is the shared HTTP execution function for all execution
+// config services in this package. Each service passes its URL-specific path and
+// params; everything else is identical.
+func runExecutionConfigRequest(client *APIClient, ctx context.Context,
 	httpMethod, path string, extraQueryParams url.Values,
 	contentTypes []string, body interface{}) (ExecutionConfigResponse, error) {
 
@@ -105,13 +68,13 @@ func (a *ExecutionConfigApiService) executeRequest(ctx context.Context,
 		localVarResult   ExecutionConfigResponse
 	)
 
-	localVarPath := a.gatewayBase() + path
+	localVarPath := client.cfg.BasePath + path
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
 
-	localVarQueryParams.Add("accountIdentifier", parameterToString(a.client.AccountId, ""))
+	localVarQueryParams.Add("accountIdentifier", parameterToString(client.AccountId, ""))
 	for k, vs := range extraQueryParams {
 		for _, v := range vs {
 			localVarQueryParams.Add(k, v)
@@ -144,13 +107,13 @@ func (a *ExecutionConfigApiService) executeRequest(ctx context.Context,
 		localVarPostBody = body
 	}
 
-	r, err := a.client.prepareRequest(ctx, localVarPath, httpMethod, localVarPostBody, localVarHeaderParams,
+	r, err := client.prepareRequest(ctx, localVarPath, httpMethod, localVarPostBody, localVarHeaderParams,
 		localVarQueryParams, localVarFormParams, localVarFileName, localVarFileBytes)
 	if err != nil {
 		return localVarResult, err
 	}
 
-	httpResp, err := a.client.callAPI(r)
+	httpResp, err := client.callAPI(r)
 	if err != nil {
 		return localVarResult, err
 	}
@@ -173,11 +136,13 @@ func (a *ExecutionConfigApiService) executeRequest(ctx context.Context,
 		}
 	}
 
-	err = a.client.decode(&localVarResult, respBody, httpResp.Header.Get("Content-Type"))
+	err = client.decode(&localVarResult, respBody, httpResp.Header.Get("Content-Type"))
 	return localVarResult, err
 }
 
-func execCfgQueryParams(infraType string, overridesOnly *bool) url.Values {
+// executionConfigQueryParams builds the common infra + overridesOnly query parameters
+// used by all execution config GET endpoints.
+func executionConfigQueryParams(infraType string, overridesOnly *bool) url.Values {
 	params := url.Values{}
 	params.Add("infra", parameterToString(infraType, ""))
 	if overridesOnly != nil {

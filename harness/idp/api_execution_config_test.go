@@ -49,6 +49,8 @@ func TestIdpExecutionConfig(t *testing.T) {
 	testUpdateImageType := "registerCatalog"
 	testUpdateImageTag := "harness/registercatalog:updatedTmpNow"
 
+	// reset the test field first to ensure clean state from any previous failed run
+	testIdpResetConfig(tc, testUpdateImageType)
 	// fetch the harness default images for the infra type
 	testIdpGetDefaultConfig(tc)
 	// verify no customer overrides exist before making any changes
@@ -69,8 +71,8 @@ func TestIdpExecutionConfig(t *testing.T) {
 // fail: any HTTP error, or data is empty (no images returned)
 func testIdpGetDefaultConfig(tc *idpExecTestContext) {
 	tc.t.Log("=== GetDefaultConfig ===")
-	resp, httpResp, err := tc.client.ExecutionConfigApi.GetDefaultConfig(tc.ctx, tc.infraType)
-	printIdpExecResult(tc.t, resp, httpResp.StatusCode, err)
+	resp, err := tc.client.ExecutionConfigApi.GetDefaultConfig(tc.ctx, tc.infraType)
+	printIdpExecResult(tc.t, resp, err)
 	require.NotEmpty(tc.t, resp.Data, "expected default config data, got empty map")
 	require.NotEmpty(tc.t, resp.Data["registerCatalog"], "expected registerCatalog to be set in default config")
 }
@@ -79,8 +81,8 @@ func testIdpGetDefaultConfig(tc *idpExecTestContext) {
 // fail: HTTP error, or registerCatalog already has an override (dirty state from a previous run)
 func testIdpGetCustomerConfigOverridesOnly(tc *idpExecTestContext) {
 	tc.t.Log("=== GetCustomerConfig before update (overridesOnly=true, expect no overrides) ===")
-	resp, httpResp, err := tc.client.ExecutionConfigApi.GetCustomerConfig(tc.ctx, tc.infraType, true)
-	printIdpExecResult(tc.t, resp, httpResp.StatusCode, err)
+	resp, err := tc.client.ExecutionConfigApi.GetCustomerConfig(tc.ctx, tc.infraType, true)
+	printIdpExecResult(tc.t, resp, err)
 	require.True(tc.t, resp.Data == nil || resp.Data["registerCatalog"] == "",
 		"expected no registerCatalog override before update, got %q", resp.Data["registerCatalog"])
 }
@@ -92,16 +94,16 @@ func testIdpUpdateConfig(tc *idpExecTestContext, imageField, imageTag string) {
 	body := []ExecutionConfigUpdate{
 		{Field: imageField, Value: imageTag},
 	}
-	resp, httpResp, err := tc.client.ExecutionConfigApi.UpdateConfig(tc.ctx, tc.infraType, body)
-	printIdpExecResult(tc.t, resp, httpResp.StatusCode, err)
+	resp, err := tc.client.ExecutionConfigApi.UpdateConfig(tc.ctx, tc.infraType, body)
+	printIdpExecResult(tc.t, resp, err)
 }
 
 // pass: HTTP 200, data contains imageField set to imageTag (override is visible)
 // fail: HTTP error, data empty, or imageField value does not match imageTag
 func testIdpGetCustomerConfigOverridesOnlyAfterUpdate(tc *idpExecTestContext, imageField, imageTag string) {
 	tc.t.Log("=== GetCustomerConfig after update (overridesOnly=true, expect override present) ===")
-	resp, httpResp, err := tc.client.ExecutionConfigApi.GetCustomerConfig(tc.ctx, tc.infraType, true)
-	printIdpExecResult(tc.t, resp, httpResp.StatusCode, err)
+	resp, err := tc.client.ExecutionConfigApi.GetCustomerConfig(tc.ctx, tc.infraType, true)
+	printIdpExecResult(tc.t, resp, err)
 	checkIdpExecField(tc.t, resp, imageField, imageTag)
 }
 
@@ -109,8 +111,8 @@ func testIdpGetCustomerConfigOverridesOnlyAfterUpdate(tc *idpExecTestContext, im
 // fail: HTTP error, data empty, or imageField value does not match imageTag
 func testIdpGetCustomerConfigAllAfterUpdate(tc *idpExecTestContext, imageField, imageTag string) {
 	tc.t.Log("=== GetCustomerConfig after update (overridesOnly=false, expect override present) ===")
-	resp, httpResp, err := tc.client.ExecutionConfigApi.GetCustomerConfig(tc.ctx, tc.infraType, false)
-	printIdpExecResult(tc.t, resp, httpResp.StatusCode, err)
+	resp, err := tc.client.ExecutionConfigApi.GetCustomerConfig(tc.ctx, tc.infraType, false)
+	printIdpExecResult(tc.t, resp, err)
 	checkIdpExecField(tc.t, resp, imageField, imageTag)
 }
 
@@ -121,16 +123,16 @@ func testIdpResetConfig(tc *idpExecTestContext, imageField string) {
 	body := []ExecutionConfigUpdate{
 		{Field: imageField},
 	}
-	resp, httpResp, err := tc.client.ExecutionConfigApi.ResetConfig(tc.ctx, tc.infraType, body)
-	printIdpExecResult(tc.t, resp, httpResp.StatusCode, err)
+	resp, err := tc.client.ExecutionConfigApi.ResetConfig(tc.ctx, tc.infraType, body)
+	printIdpExecResult(tc.t, resp, err)
 }
 
 // pass: HTTP 200, data nil or imageField empty — override was removed by reset
 // fail: HTTP error, or imageField still holds the previously set override value
 func testIdpGetCustomerConfigOverridesOnlyAfterReset(tc *idpExecTestContext, imageField string) {
 	tc.t.Log("=== GetCustomerConfig after reset (overridesOnly=true, expect no overrides) ===")
-	resp, httpResp, err := tc.client.ExecutionConfigApi.GetCustomerConfig(tc.ctx, tc.infraType, true)
-	printIdpExecResult(tc.t, resp, httpResp.StatusCode, err)
+	resp, err := tc.client.ExecutionConfigApi.GetCustomerConfig(tc.ctx, tc.infraType, true)
+	printIdpExecResult(tc.t, resp, err)
 	require.True(tc.t, resp.Data == nil || resp.Data[imageField] == "",
 		"%s still has override value %q after reset", imageField, resp.Data[imageField])
 	tc.t.Logf("PASS: %s override is gone after reset", imageField)
@@ -143,9 +145,9 @@ func checkIdpExecField(t *testing.T, resp ExecutionConfigResponse, imageField, i
 	t.Logf("PASS: %s = %q", imageField, imageTag)
 }
 
-func printIdpExecResult(t *testing.T, resp ExecutionConfigResponse, statusCode int, err error) {
-	require.NoError(t, err, "HTTP %d", statusCode)
-	t.Logf("Status: %s (HTTP %d)", resp.Status, statusCode)
+func printIdpExecResult(t *testing.T, resp ExecutionConfigResponse, err error) {
+	require.NoError(t, err)
+	t.Logf("Status: %s", resp.Status)
 	if len(resp.Data) > 0 {
 		b, _ := json.MarshalIndent(resp.Data, "", "  ")
 		t.Log(string(b))
