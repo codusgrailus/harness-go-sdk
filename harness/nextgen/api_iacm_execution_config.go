@@ -9,6 +9,22 @@ import (
 
 type IacmExecutionConfigApiService service
 
+// IacmExecutionConfigResponse is the API response wrapper for the IACM execution config endpoint.
+// Data is a dynamic map of image field names to image tags, e.g. {"liteEngineTag": "harness/ci-lite-engine:1.0.0"}.
+// Using a map avoids struct changes when the API adds or removes image types.
+type IacmExecutionConfigResponse struct {
+	Status        string            `json:"status,omitempty"`
+	Data          map[string]string `json:"data,omitempty"`
+	MetaData      interface{}       `json:"metaData,omitempty"`
+	CorrelationId string            `json:"correlationId,omitempty"`
+}
+
+// IacmExecutionConfigUpdate represents a single image field update for the update-config endpoint
+type IacmExecutionConfigUpdate struct {
+	Field string `json:"field"`
+	Value string `json:"value,omitempty"`
+}
+
 const (
 	iacmExCfgGetDefaultConfigUrl  = "/iacm-manager/execution-config/get-default-config"
 	iacmExCfgGetCustomerConfigUrl = "/iacm-manager/execution-config/get-customer-config"

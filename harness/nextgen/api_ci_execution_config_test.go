@@ -54,8 +54,8 @@ func testCiGetDefaultConfig(tc *ciTestContext) {
 	tc.t.Log("=== GetDefaultConfig ===")
 	resp, httpResp, err := tc.client.CiExecutionConfigApi.GetDefaultConfig(tc.ctx, tc.infraType)
 	printCiResult(tc.t, resp, httpResp.StatusCode, err)
-	require.NotNil(tc.t, resp.Data, "expected default config data, got nil")
-	require.NotEmpty(tc.t, resp.Data.LiteEngineTag, "expected liteEngineTag to be set in default config")
+	require.NotEmpty(tc.t, resp.Data, "expected default config data, got empty map")
+	require.NotEmpty(tc.t, resp.Data["liteEngineTag"], "expected liteEngineTag to be set in default config")
 }
 
 // pass: HTTP 200, status SUCCESS, data nil or liteEngineTag empty (no overrides set yet)
@@ -64,8 +64,8 @@ func testCiGetCustomerConfigOverridesOnly(tc *ciTestContext) {
 	tc.t.Log("=== GetCustomerConfig before update (overridesOnly=true, expect no overrides) ===")
 	resp, httpResp, err := tc.client.CiExecutionConfigApi.GetCustomerConfig(tc.ctx, tc.infraType, true)
 	printCiResult(tc.t, resp, httpResp.StatusCode, err)
-	require.True(tc.t, resp.Data == nil || resp.Data.LiteEngineTag == "",
-		"expected no liteEngineTag override before update, got %q", resp.Data.LiteEngineTag)
+	require.True(tc.t, resp.Data == nil || resp.Data["liteEngineTag"] == "",
+		"expected no liteEngineTag override before update, got %q", resp.Data["liteEngineTag"])
 }
 
 // pass: HTTP 200, status SUCCESS — the API accepted the override
@@ -114,22 +114,22 @@ func testCiGetCustomerConfigOverridesOnlyAfterReset(tc *ciTestContext, imageFiel
 	tc.t.Log("=== GetCustomerConfig after reset (overridesOnly=true, expect no overrides) ===")
 	resp, httpResp, err := tc.client.CiExecutionConfigApi.GetCustomerConfig(tc.ctx, tc.infraType, true)
 	printCiResult(tc.t, resp, httpResp.StatusCode, err)
-	require.True(tc.t, resp.Data == nil || resp.Data.LiteEngineTag == "",
-		"%s still has override value %q after reset", imageField, resp.Data.LiteEngineTag)
+	require.True(tc.t, resp.Data == nil || resp.Data[imageField] == "",
+		"%s still has override value %q after reset", imageField, resp.Data[imageField])
 	tc.t.Logf("PASS: %s override is gone after reset", imageField)
 }
 
 func checkCiField(t *testing.T, resp CiExecutionConfigResponse, imageField, imageTag string) {
-	require.NotNil(t, resp.Data, "%s — response data is nil", imageField)
-	require.Equal(t, imageTag, resp.Data.LiteEngineTag,
-		"%s mismatch: got %q, expected %q", imageField, resp.Data.LiteEngineTag, imageTag)
+	require.NotEmpty(t, resp.Data, "%s — response data is empty", imageField)
+	require.Equal(t, imageTag, resp.Data[imageField],
+		"%s mismatch: got %q, expected %q", imageField, resp.Data[imageField], imageTag)
 	t.Logf("PASS: %s = %q", imageField, imageTag)
 }
 
 func printCiResult(t *testing.T, resp CiExecutionConfigResponse, statusCode int, err error) {
 	require.NoError(t, err, "HTTP %d", statusCode)
 	t.Logf("Status: %s (HTTP %d)", resp.Status, statusCode)
-	if resp.Data != nil {
+	if len(resp.Data) > 0 {
 		b, _ := json.MarshalIndent(resp.Data, "", "  ")
 		t.Log(string(b))
 	} else {

@@ -9,6 +9,19 @@ import (
 
 type CiExecutionConfigApiService service
 
+type CiExecutionConfigResponse struct {
+	Status        string            `json:"status,omitempty"`
+	Data          map[string]string `json:"data,omitempty"`
+	MetaData      interface{}       `json:"metaData,omitempty"`
+	CorrelationId string            `json:"correlationId,omitempty"`
+}
+
+// CiExecutionConfigUpdate represents a single image field update for the update-config endpoint
+type CiExecutionConfigUpdate struct {
+	Field string `json:"field"`
+	Value string `json:"value,omitempty"`
+}
+
 const (
 	ciExCfgGetDefaultConfigUrl  = "/ci/execution-config/get-default-config"
 	ciExCfgGetCustomerConfigUrl = "/ci/execution-config/get-customer-config"
